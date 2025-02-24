@@ -158,7 +158,7 @@ def funtion2trainTheModel(net, lossfun, optimizer, train_loader, test_loader, nu
   # function output
   return trainLoss,devLoss,trainAcc,devAcc,net
 
-def getDataLoaders(Data,labels, batchsize = 32,  num_stim = 4500):
+def getDataLoaders(Data,labels, test_size = 0.2, batchsize = 32,  num_stim = 4500):
     # restrict to first 4500 stimuli
     Data = Data[:,:,:,:num_stim]
 
@@ -167,7 +167,7 @@ def getDataLoaders(Data,labels, batchsize = 32,  num_stim = 4500):
     labelsT = torch.tensor( labels ).long()
 
     # use scikitlearn to split the data
-    train_data,test_data, train_labels,test_labels = train_test_split(dataT, labelsT, test_size=.1)
+    train_data,test_data, train_labels,test_labels = train_test_split(dataT, labelsT, test_size=test_size)
 
     # convert into PyTorch Datasets
     train_data = torch.utils.data.TensorDataset(train_data,train_labels)
