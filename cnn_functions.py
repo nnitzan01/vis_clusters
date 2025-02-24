@@ -107,7 +107,7 @@ def funtion2trainTheModel(net, lossfun, optimizer, train_loader, test_loader, nu
   devAcc    = torch.zeros(numepochs)
 
   # loop over epochs
-  for epochi in range(tqdm.tqdm(numepochs)):
+  for epochi in tqdm.tqdm(range(numepochs)):
 
     # loop over training data batches
     net.train() # switch to train mode
@@ -131,8 +131,7 @@ def funtion2trainTheModel(net, lossfun, optimizer, train_loader, test_loader, nu
       # loss and accuracy from this batch
       batchLoss.append(loss.item())
       batchAcc.append( torch.mean((torch.argmax(yHat,axis=1) == y).float()).item() )
-    # end of batch loop...
-
+    
     # and get average losses and accuracies across the batches
     trainLoss[epochi] = np.mean(batchLoss)
     trainAcc[epochi]  = 100*np.mean(batchAcc)
