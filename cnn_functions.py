@@ -8,90 +8,92 @@ from torch.utils.data import DataLoader
 import tqdm
 
 # create a class for the model
-def createNet(printtoggle=False, lr = 0.001, weight_decay=0.001):
-  class visNet(nn.Module):
-    def __init__(self,printtoggle):
-      super().__init__()
+def createNet(printtoggle=False, lr=0.001, weight_decay=0.001, dropout=0.1):
+    class visNet(nn.Module):
+        def __init__(self, printtoggle):
+            super().__init__()
 
-      ### convolution layers (input chan x feature maps)
-      self.conv1 = nn.Conv2d(1,10,kernel_size=(5,5),stride=1,padding=1)
-      self.bnorm1 = nn.BatchNorm2d(10) 
-      # width  = np.floor((76 + 2*1 - 5)/1)+1 = 74/2 = 37
-      # height = np.floor((4500 + 2*1 - 5)/1)+1 = 4498/2 = 2249
+            ### Convolutional layers (Reduced Complexity)
+            # Input: 1 channel, Output: 10 feature maps, Kernel: 5x5, Padding: 1, Stride: 1
+            self.conv1 = nn.Conv2d(1, 10, kernel_size=5, stride=1, padding=1)
+            self.bnorm1 = nn.BatchNorm2d(10)
 
-      self.conv2 = nn.Conv2d(10,20,kernel_size=(5,5),stride=1,padding=1)
-      self.bnorm2 = nn.BatchNorm2d(20) 
-      # width  = np.floor( (37+2*1-5)/1 )+1 = 36/2 = 17 
-      # height = np.floor((2249 + 2*1 - 5)/1)+1 = 2247/2 = 1123
+            # Input: 10 channels, Output: 20 feature maps, Kernel: 5x5, Padding: 1, Stride: 1
+            self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding=1)
+            self.bnorm2 = nn.BatchNorm2d(20)
 
-      self.conv3 = nn.Conv2d(20,30,kernel_size=(5,5),stride=1,padding=1)
-      self.bnorm3 = nn.BatchNorm2d(30)  
-      # width  = np.floor( (17+2*1-5)/1 )+1 = 15/2 = 7
-      # height = np.floor((1123 + 2*1 - 5)/1)+1 = 1121/2 = 560
+            # Input: 20 channels, Output: 30 feature maps, Kernel: 5x5, Padding: 1, Stride: 1
+            self.conv3 = nn.Conv2d(20, 30, kernel_size=5, stride=1, padding=1)
+            self.bnorm3 = nn.BatchNorm2d(30)
 
-      # compute the number of units in FClayer (number of outputs of conv3)
-      expectSize1 = np.floor( (7+2*0-1)/1 ) + 1
-      expectSize2 = np.floor( (560+2*0-1)/1 ) + 1
-      expectSize = 30*int(expectSize1*expectSize2)
+            # Let's assume the input is 76x4500
+            # conv1 output size: (76-5+2*1)/1 + 1 = 74. pool: 74/2 = 37
+            # conv2 output size: (37-5+2*1)/1 + 1 = 35. pool: 35/2 = 17 (rounded down)
+            # conv3 output size: (17-5+2*1)/1 + 1 = 15. pool: 15/2 = 7 (rounded down)
 
-      ### fully-connected layer
-      self.fc1 = nn.Linear(expectSize,50)
+            # similarly for the height:
+            # conv1 output size: (4500-5+2*1)/1 + 1 = 4498. pool: 4498/2 = 2249
+            # conv2 output size: (2249-5+2*1)/1 + 1 = 2247. pool: 2247/2 = 1123
+            # conv3 output size: (1123-5+2*1)/1 + 1 = 1121. pool: 1121/2 = 560
 
-      ### output layer
-      self.out = nn.Linear(50,5)
+            # Output size after conv3 and pool3: 7x560
+            expectSize = 30 * 7 * 560
+            
+            ### Fully connected layers
+            self.fc1 = nn.Linear(expectSize, 50)  # Reduced units in FC1
+            self.out = nn.Linear(50, 5)  # Output layer (5 classes)
 
-      # toggle for printing out tensor sizes during forward prop
-      self.print = printtoggle
+            # Reduced Dropout for regularization
+            self.dropout = nn.Dropout(dropout) #added a dropout in the forward func
 
-    # forward pass
-    def forward(self,x):
+            self.print = printtoggle
 
-      print(f'Input: {x.shape}') if self.print else None
+        def forward(self, x):
+            if self.print:
+                print(f'Input: {x.shape}')
 
-      # convolution -> maxpool -> relu
-      # x = F.relu(F.max_pool2d(self.conv1(x),2))
-      conv1act = F.relu(self.conv1(x))
-      # x = F.avg_pool2d(conv1act,(2,2))
-      x = F.relu(self.bnorm1(F.max_pool2d(self.conv1(x),(2,2))))
-      print(f'Layer conv1/pool1: {x.shape}') if self.print else None
+            # Conv1 -> BatchNorm -> ReLU -> MaxPool
+            conv1act = F.relu(self.conv1(x))
+            x = F.relu(self.bnorm1(F.max_pool2d(self.conv1(x),2)))
+            if self.print:
+                print(f'Layer conv1/pool1: {x.shape}')
 
-      # and again: convolution -> maxpool -> relu
-      # x = F.relu(F.max_pool2d(self.conv2(x),2))
-      conv2act = F.relu(self.conv2(x))
-      # x = F.avg_pool2d(conv2act,(2,2))
-      x = F.relu(self.bnorm2(F.max_pool2d(self.conv2(x),(2,2))))
-      print(f'Layer conv2/pool2: {x.shape}') if self.print else None
+            # Conv2 -> BatchNorm -> ReLU -> MaxPool
+            conv2act = F.relu(self.conv2(x))
+            x = F.relu(self.bnorm2(F.max_pool2d(self.conv2(x),2)))
+            if self.print:
+                print(f'Layer conv2/pool2: {x.shape}')
 
-      # and again: convolution -> maxpool -> relu
-      # x = F.relu(F.max_pool2d(self.conv2(x),2))
-      conv3act = F.relu(self.conv3(x))
-      # x = F.avg_pool2d(conv3act,(2,2))
-      x = F.relu(self.bnorm3(F.max_pool2d(self.conv3(x),(2,2))))
-      print(f'Layer conv3/pool3: {x.shape}') if self.print else None
+            # Conv3 -> BatchNorm -> ReLU -> MaxPool
+            conv3act = F.relu(self.conv3(x))
+            x = F.relu(self.bnorm3(F.max_pool2d(self.conv3(x),2)))
+            if self.print:
+                print(f'Layer conv3/pool3: {x.shape}')
 
-      # reshape for linear layer
-      nUnits = x.shape.numel()/x.shape[0]
-      x = x.view(-1,int(nUnits))
-      if self.print: print(f'Vectorize: {x.shape}')
+            # Flatten for fully connected layers
+            x = torch.flatten(x, 1)  # Flatten all dimensions except the batch
+            if self.print:
+                print(f'Vectorize: {x.shape}')
 
-      # linear layers
-      x = F.relu(self.fc1(x))
-      if self.print: print(f'Layer fc1: {x.shape}')
-      x = self.out(x)
-      if self.print: print(f'Layer out: {x.shape}')
+            # FC1 -> ReLU -> Dropout
+            x = F.relu(self.fc1(x))
+            x = self.dropout(x)  # Apply dropout for regularization
+            if self.print:
+                print(f'Layer fc1: {x.shape}')
 
-      return x, conv1act, conv2act, conv3act
 
-  # create the model instance
-  net = visNet(printtoggle)
+            # Output layer
+            x = self.out(x)
+            if self.print:
+                print(f'Layer out: {x.shape}')
 
-  # loss function
-  lossfun = nn.CrossEntropyLoss()
+            return x, conv1act, conv2act, conv3act
 
-  # optimizer
-  optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    net = visNet(printtoggle)
+    lossfun = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
-  return net,lossfun,optimizer
+    return net, lossfun, optimizer
 
 
 # a function that trains the model
